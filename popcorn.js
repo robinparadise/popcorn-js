@@ -1726,7 +1726,7 @@
     destroy: function() {
       Popcorn.destroy.call( null, this );
       return this;
-    }
+    },
     // Continue with the next Flow
     continueFlow: function(instance, info) {
       var tracks = instance.getOrderedBySet();
