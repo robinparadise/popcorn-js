@@ -1727,6 +1727,24 @@
       Popcorn.destroy.call( null, this );
       return this;
     }
+    // Continue with the next Flow
+    continueFlow: function(instance, info) {
+      var tracks = instance.getOrderedBySet();
+      var nextSetMedia = Number(instance.setMedia) +1;
+      if ( tracks[nextSetMedia] && tracks[nextSetMedia].length >1 ) {
+        var firstFlow = $(tracks[nextSetMedia][0].view.element).attr("flow");
+        var secondFlow = $(tracks[nextSetMedia][1].view.element).attr("flow");
+        if (info.score >= 50) { // Continue with the first flow
+          $(".trackMediaEvent[flow='"+ firstFlow +"']").removeClass("hideFlow");
+          $(".trackMediaEvent[flow='"+ secondFlow +"']").addClass("hideFlow");
+        }
+        else { // Continue with the second flow
+          $(".trackMediaEvent[flow='"+ secondFlow +"']").removeClass("hideFlow");
+          $(".trackMediaEvent[flow='"+ firstFlow +"']").addClass("hideFlow");
+        }
+      }
+    }
+    
   });
 
   //  Plugin manifests
