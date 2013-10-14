@@ -569,6 +569,7 @@
             // Supports time as seconds or SMPTE
             if ( arg != null && /play|pause/.test( name ) ) {
               this.media.currentTime = Popcorn.util.toSeconds( arg );
+// Code Here: We need to play plugins or to pause it
             }
 
             this.media[ name ]();
@@ -1555,6 +1556,10 @@
                   track: byEnd
                 })
               );
+              // Jump to the next Plugin when playing (not seeking, nor paused)
+              if (currentTime - previousTime < 0.2) {
+                obj.jumpNext(byEnd); // obj == Popcorn == this
+              }
             }
           }
 
@@ -1727,21 +1732,65 @@
       Popcorn.destroy.call( null, this );
       return this;
     },
+    // Choose with Flow to follow by the "score info" match
+    chooseFlowByScore: function(instance, info, nextSet) {
+      var tracks = instance.getOrderedBySet();
+      var nextSet = tracks[instance.setMedia +1];
+      var aux = {'flow': undefined, 'nextMedia': undefined}
+
+      if ( nextSet && nextSet.length >1 ) { // There is a Set of Media
+        if (info.score >= 50) { // Continue with the first flow
+          aux.nextMedia = nextSet[0];
+          aux.flow = nextSet[0].popcornTrackEvent.flow;
+        } else { // Continue with the second flow
+          aux.nextMedia = nextSet[1];
+          aux.flow = nextSet[1].popcornTrackEvent.flow;
+        }
+      } else if (nextSet && nextSet.length === 1) { // There is only one Media
+          aux.nextMedia = nextSet[0];
+          aux.flow = nextSet[0].popcornTrackEvent.flow;
+      }
+      return aux;
+    },
     // Continue with the next Flow
+    toggleFlow: function(instance, showFlow) {
+      var tracks = instance.getOrderedBySet();
+      var nextSet = tracks[instance.setMedia +1];
+      var flow; 
+      for (var i in nextSet) {
+        flow = nextSet[i].popcornTrackEvent.flow;
+        $(".trackMediaEvent[flow='"+ flow +"']").addClass("hideFlow");
+      }
+      $(".trackMediaEvent[flow='"+ showFlow +"']").removeClass("hideFlow");
+    },
+    // Skip to the next Popcorn plugin
+    jumpNext: function(instance, time) {
+      if (time) {
+        this.currentTime(time);
+        return;
+      }
+      var tracks = instance.getOrderedBySet();
+      var nextSet = tracks[instance.setMedia +1];
+
+      if (!this.media.paused) {
+        if ( nextSet && nextSet.length > 0 ) {
+          this.currentTime(nextSet[0].popcornOptions.start);
+        } else {
+          this.currentTime(this.media.duration);
+        }
+      }
+
+    },
     continueFlow: function(instance, info) {
       var tracks = instance.getOrderedBySet();
-      var nextSetMedia = Number(instance.setMedia) +1;
-      if ( tracks[nextSetMedia] && tracks[nextSetMedia].length >1 ) {
-        var firstFlow = $(tracks[nextSetMedia][0].view.element).attr("flow");
-        var secondFlow = $(tracks[nextSetMedia][1].view.element).attr("flow");
-        if (info.score >= 50) { // Continue with the first flow
-          $(".trackMediaEvent[flow='"+ firstFlow +"']").removeClass("hideFlow");
-          $(".trackMediaEvent[flow='"+ secondFlow +"']").addClass("hideFlow");
-        }
-        else { // Continue with the second flow
-          $(".trackMediaEvent[flow='"+ secondFlow +"']").removeClass("hideFlow");
-          $(".trackMediaEvent[flow='"+ firstFlow +"']").addClass("hideFlow");
-        }
+      var nextSet = tracks[instance.setMedia +1];
+
+      var aux = this.chooseFlowByScore(instance, info);
+      this.toggleFlow(instance, aux.flow);
+      if (aux.nextMedia) {
+        this.jumpNext(instance, aux.nextMedia.popcornOptions.start);
+      } else {
+        this.jumpNext(instance, this.media.duration);
       }
     }
     
