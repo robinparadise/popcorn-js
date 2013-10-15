@@ -1560,6 +1560,7 @@
               if (currentTime - previousTime < 0.2) {
                 obj.jumpNext(byEnd); // obj == Popcorn == this
               }
+              obj.toggleClassRunning(byEnd);
             }
           }
 
@@ -1584,6 +1585,7 @@
                 byStart._running === false ) {
 
             byStart._running = true;
+console.log("[running Class]", byStart, obj);
             obj.data.running[ type ].push( byStart );
 
             if ( !obj.data.disabled[ type ] ) {
@@ -1597,6 +1599,8 @@
                   track: byStart
                 })
               );
+              obj.toggleClassRunning(byStart, "started");
+console.log("[START]");
             }
           }
           start++;
@@ -1638,6 +1642,7 @@
                   track: byStart
                 })
               );
+              obj.toggleClassRunning(byStart);
             }
           }
           start--;
@@ -1663,6 +1668,7 @@
                 byEnd._running === false ) {
 
             byEnd._running = true;
+console.log("[running Class]", byEnd);
             obj.data.running[ type ].push( byEnd );
 
             if ( !obj.data.disabled[ type ] ) {
@@ -1676,6 +1682,8 @@
                   track: byEnd
                 })
               );
+              obj.toggleClassRunning(byEnd, "started");
+console.log("[START 2]");
             }
           }
           end--;
@@ -1831,6 +1839,16 @@
         this.jumpNext(instance, this.media.duration);
       }
       this.play(); // resume media throw plugin
+    },
+    toggleClassRunning: function(instance, action) {
+      var tracks = instance.getOrderedBySet();
+      var instanceEvent = this.findById(tracks[instance.setMedia], instance.id);
+      if (instanceEvent) {
+        if (action)
+          $(instanceEvent.view.element).addClass("running");
+        else
+          $(instanceEvent.view.element).removeClass("running");
+      }
     }
     
   });
