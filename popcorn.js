@@ -1758,28 +1758,68 @@
       var nextSet = tracks[instance.setMedia +1];
       var flow; 
       for (var i in nextSet) {
-        flow = nextSet[i].popcornTrackEvent.flow;
-        $(".trackMediaEvent[flow='"+ flow +"']").addClass("hideFlow");
+        hideFlow = nextSet[i].popcornTrackEvent.flow;
+        if (hideFlow !== showFlow)
+          $(".trackMediaEvent[flow='"+ hideFlow +"']").addClass("hideFlow");
       }
       $(".trackMediaEvent[flow='"+ showFlow +"']").removeClass("hideFlow");
+      instance._running = false; // Now this instance is not running
+    },
+    findById: function(sourceSet, id) {
+      return sourceSet.filter(function( obj ) {
+        return obj.id === id;
+      })[ 0 ];
+    },
+    indexOnSet: function(sourceSet, id) {
+      return sourceSet.indexOf(this.findById(sourceSet, id));
+    },
+    // return Running instances and not running instances
+    runningInstancesObj: function(sourceSet) {
+      var aux = {'running':[], 'notRunning':[]};
+      for (var i in sourceSet) {
+        if (sourceSet[i].popcornTrackEvent._running)
+          aux.running.push(sourceSet[i]);
+        else
+          aux.notRunning.push(sourceSet[i]);
+      }
+      return aux;
     },
     // Skip to the next Popcorn plugin
     jumpNext: function(instance, time) {
-      if (time) {
-        this.currentTime(time);
-        return;
-      }
+      var currTime = this.currentTime();
       var tracks = instance.getOrderedBySet();
+      var currentSet = tracks[instance.setMedia];
       var nextSet = tracks[instance.setMedia +1];
+      var runningInstances = this.runningInstancesObj(currentSet); // list running in this current set
+      var index = this.indexOnSet(runningInstances.notRunning, instance.id); // Current position in the Set
 
-      if (!this.media.paused) {
-        if ( nextSet && nextSet.length > 0 ) {
-          this.currentTime(nextSet[0].popcornOptions.start);
-        } else {
-          this.currentTime(this.media.duration);
+      // Current Set
+      // There might be more popcorn 'running or to run' in the CurrentSet
+      if (currentSet.length > 1) {
+        if (!runningInstances.running.lenght) { // If there's no running instances
+          if (runningInstances.notRunning[index+1]) { // if we can jump to the next pop in the same Set
+            if (currTime < runningInstances.notRunning[index+1].popcornOptions.start) {
+              this.currentTime( runningInstances.notRunning[index+1].popcornOptions.start );
+              return;
+            }
+          } 
         }
       }
+      // if (this.media.paused) return; // Do nothing on paused !!
 
+      // Next Set
+      if (!runningInstances.running.lenght) { // If there's no running instances
+        if (time) { // Just jump to the params time
+          this.currentTime(time);
+        }
+        else {
+          if ( nextSet && nextSet.length > 0 ) { // Jump to the nextSet
+            this.currentTime(nextSet[0].popcornOptions.start); // Jump to the first instance
+          } else { // Jump to End
+            this.currentTime(this.media.duration);
+          }
+        }
+      } // if
     },
     continueFlow: function(instance, info) {
       var tracks = instance.getOrderedBySet();
@@ -1787,11 +1827,25 @@
 
       var aux = this.chooseFlowByScore(instance, info);
       this.toggleFlow(instance, aux.flow);
+
+/*      natives = byEnd._natives;
+      type = natives && natives.type;
+      natives.end.call( obj, event, byEnd );
+
+      obj.emit( trackend,
+        Popcorn.extend({}, byEnd, {
+          plugin: type,
+          type: trackend,
+          track: byEnd
+        })
+      );*/
+
       if (aux.nextMedia) {
         this.jumpNext(instance, aux.nextMedia.popcornOptions.start);
       } else {
         this.jumpNext(instance, this.media.duration);
       }
+      this.play(); // resume media throw plugin
     }
     
   });
