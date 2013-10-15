@@ -1790,13 +1790,13 @@
       var tracks = instance.getOrderedBySet();
       var currentSet = tracks[instance.setMedia];
       var nextSet = tracks[instance.setMedia +1];
-      var runningInstances = this.runningInstancesObj(currentSet); // list running in this current set
+      var runningInstances = this.runningInstancesObj(currentSet); // list runnings in this current set
       var index = this.indexOnSet(runningInstances.notRunning, instance.id); // Current position in the Set
 
       // Current Set
       // There might be more popcorn 'running or to run' in the CurrentSet
       if (currentSet.length > 1) {
-        if (!runningInstances.running.lenght) { // If there's no running instances
+        if (runningInstances.running.length < 1) { // If there's no running instances
           if (runningInstances.notRunning[index+1]) { // if we can jump to the next pop in the same Set
             if (currTime < runningInstances.notRunning[index+1].popcornOptions.start) {
               this.currentTime( runningInstances.notRunning[index+1].popcornOptions.start );
@@ -1805,21 +1805,18 @@
           } 
         }
       }
-      // if (this.media.paused) return; // Do nothing on paused !!
 
       // Next Set
-      if (!runningInstances.running.lenght) { // If there's no running instances
+      if (runningInstances.running.length < 1) { // If there's no running instances
         if (time) { // Just jump to the params time
           this.currentTime(time);
-        }
-        else {
-          if ( nextSet && nextSet.length > 0 ) { // Jump to the nextSet
+        } else if ( nextSet && nextSet.length > 0 ) { // Jump to the nextSet
+// Soon: We need to jump to the "First instance" which has class 'showFlow' or 'mainFlow'
             this.currentTime(nextSet[0].popcornOptions.start); // Jump to the first instance
-          } else { // Jump to End
-            this.currentTime(this.media.duration);
-          }
+        } else { // Jump to End
+          this.currentTime(this.media.duration);
         }
-      } // if
+      }
     },
     continueFlow: function(instance, info) {
       var tracks = instance.getOrderedBySet();
@@ -1827,18 +1824,6 @@
 
       var aux = this.chooseFlowByScore(instance, info);
       this.toggleFlow(instance, aux.flow);
-
-/*      natives = byEnd._natives;
-      type = natives && natives.type;
-      natives.end.call( obj, event, byEnd );
-
-      obj.emit( trackend,
-        Popcorn.extend({}, byEnd, {
-          plugin: type,
-          type: trackend,
-          track: byEnd
-        })
-      );*/
 
       if (aux.nextMedia) {
         this.jumpNext(instance, aux.nextMedia.popcornOptions.start);
