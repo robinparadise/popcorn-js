@@ -1585,7 +1585,6 @@
                 byStart._running === false ) {
 
             byStart._running = true;
-console.log("[running Class]", byStart, obj);
             obj.data.running[ type ].push( byStart );
 
             if ( !obj.data.disabled[ type ] ) {
@@ -1600,7 +1599,6 @@ console.log("[running Class]", byStart, obj);
                 })
               );
               obj.toggleClassRunning(byStart, "started");
-console.log("[START]");
             }
           }
           start++;
@@ -1668,7 +1666,6 @@ console.log("[START]");
                 byEnd._running === false ) {
 
             byEnd._running = true;
-console.log("[running Class]", byEnd);
             obj.data.running[ type ].push( byEnd );
 
             if ( !obj.data.disabled[ type ] ) {
@@ -1683,7 +1680,6 @@ console.log("[running Class]", byEnd);
                 })
               );
               obj.toggleClassRunning(byEnd, "started");
-console.log("[START 2]");
             }
           }
           end--;
@@ -1760,6 +1756,16 @@ console.log("[START 2]");
       }
       return aux;
     },
+    toggleClassRunning: function(instance, action) {
+      var tracks = instance.getOrderedBySet();
+      var instanceEvent = this.findById(tracks[instance.setMedia], instance.id);
+      if (instanceEvent) {
+        if (action)
+          $(instanceEvent.view.element).addClass("running");
+        else
+          $(instanceEvent.view.element).removeClass("running");
+      }
+    },
     // Continue with the next Flow
     toggleFlow: function(instance, showFlow) {
       var tracks = instance.getOrderedBySet();
@@ -1772,6 +1778,7 @@ console.log("[START 2]");
       }
       $(".trackMediaEvent[flow='"+ showFlow +"']").removeClass("hideFlow");
       instance._running = false; // Now this instance is not running
+      this.toggleClassRunning(instance);
     },
     findById: function(sourceSet, id) {
       return sourceSet.filter(function( obj ) {
@@ -1839,16 +1846,6 @@ console.log("[START 2]");
         this.jumpNext(instance, this.media.duration);
       }
       this.play(); // resume media throw plugin
-    },
-    toggleClassRunning: function(instance, action) {
-      var tracks = instance.getOrderedBySet();
-      var instanceEvent = this.findById(tracks[instance.setMedia], instance.id);
-      if (instanceEvent) {
-        if (action)
-          $(instanceEvent.view.element).addClass("running");
-        else
-          $(instanceEvent.view.element).removeClass("running");
-      }
     }
     
   });
