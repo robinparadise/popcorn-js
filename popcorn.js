@@ -1814,20 +1814,22 @@
         if (runningInstances.running.length < 1) { // If there's no running instances
           if (runningInstances.notRunning[index+1]) { // if we can jump to the next pop in the same Set
             if (currTime < runningInstances.notRunning[index+1].popcornOptions.start) {
-              this.currentTime( runningInstances.notRunning[index+1].popcornOptions.start );
-              return;
+              return this.currentTime( runningInstances.notRunning[index+1].popcornOptions.start );
             }
           } 
         }
       }
-
       // Next Set
       if (runningInstances.running.length < 1) { // If there's no running instances
         if (time) { // Just jump to the params time
           this.currentTime(time);
-        } else if ( nextSet && nextSet.length > 0 ) { // Jump to the nextSet
-// Soon: We need to jump to the "First instance" which has class 'showFlow' or 'mainFlow'
-            this.currentTime(nextSet[0].popcornOptions.start); // Jump to the first instance
+        } else if ( nextSet && nextSet.length > 0 ) { // Jump to the first instance of the nextSet
+          var start = nextSet.filter(function(media) {
+            var element = $(media.view.element);
+            if (element.hasClass("mainFlow") || !element.hasClass("hideFlow"))
+              return media.popcornOptions.start;
+          })[0];
+          this.currentTime(start.popcornOptions.start);
         } else { // Jump to End
           this.currentTime(this.media.duration);
         }
