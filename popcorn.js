@@ -139,7 +139,7 @@
 
             //  Execute all ready function in the stack
             for ( var i = 0, readyStackLength = readyStack.length; i < readyStackLength; i++ ) {
-
+console.log("[Execute all ready function in the stack]", readyStack[ i ]);
               readyStack[ i ].call( document, Popcorn );
 
             }
@@ -1160,6 +1160,9 @@
     this.endIndex = 0;
     this.previousUpdateTime = -1;
 
+    //Ordered by Set
+    this.bySet = [[]];
+
     Object.defineProperty( this, "count", {
       get: function() {
         return this.byStart.length;
@@ -1197,6 +1200,7 @@
     //  Store this definition in an array sorted by times
     var byStart = this.byStart,
         byEnd = this.byEnd,
+        bySet = this.bySet,
         startIndex, endIndex;
 
     //  Push track event ids into the history
@@ -1236,10 +1240,26 @@
       this.parent.data.trackEvents.endIndex++;
     }
 
+/*    // Ordered bySet
+    if (!track.setMedia)  return;
+    var setMedia = bySet[track.setMedia];
+    if (setMedia && setMedia.length > 0) {
+      for ( var index = setMedia.length - 1; index >= 0; index-- ) {
+        if ( track.start >= setMedia[index].start ) {
+          setMedia.splice( index + 1, 0, track );
+          break;
+        }
+      }
+    } else {
+      bySet[track.setMedia] = [track];
+    }
+    console.log("[TrackEvent bySet]", track, bySet);*/
+
   };
 
   TrackEvents.prototype.remove = function( removeId, state ) {
-
+/*console.log("[TrackEvent][remove]", removeId, state);
+*/
     if ( removeId instanceof TrackEvent ) {
       removeId = removeId.id;
     }
@@ -1581,8 +1601,7 @@
         if ( !natives ||
             ( !!registryByName[ type ] ||
               !!obj[ type ] ) ) {
-          if ( byStart.end > currentTime &&
-                byStart._running === false ) {
+          if ( byStart.end > currentTime && byStart._running === false && !byStart.disable ) {
 
             byStart._running = true;
             obj.data.running[ type ].push( byStart );
@@ -1662,8 +1681,7 @@
             ( !!registryByName[ type ] ||
               !!obj[ type ] ) ) {
 
-          if ( byEnd.start <= currentTime &&
-                byEnd._running === false ) {
+          if ( byEnd.start <= currentTime && byEnd._running === false && !byEnd.disable ) {
 
             byEnd._running = true;
             obj.data.running[ type ].push( byEnd );
@@ -1738,47 +1756,45 @@
     },
     // Choose with Flow to follow by the "score info" match
     chooseFlowByScore: function(instance, info, nextSet) {
-      var tracks = instance.getOrderedBySet();
-      var nextSet = tracks[instance.setMedia +1];
-      var aux = {'flow': undefined, 'nextMedia': undefined}
+console.log("[chooseFlowByScore]", instance, info, nextSet);
+      var aux = {'flow': undefined, 'nextMedia': undefined};
+      var keyrule, rule;
 
-      if ( nextSet && nextSet.length >1 ) { // There is a Set of Media
-        if (info.score >= 50) { // Continue with the first flow
-          aux.nextMedia = nextSet[0];
-          aux.flow = nextSet[0].popcornTrackEvent.flow;
-        } else { // Continue with the second flow
-          aux.nextMedia = nextSet[1];
-          aux.flow = nextSet[1].popcornTrackEvent.flow;
+      for (var i = nextSet.length - 1; i >= 0; i--) {
+        keyrule = instance.rulesTo[nextSet[i].id].keyrule;
+        rule = instance.rulesTo[nextSet[i].id][keyrule];
+
+        if (keyrule === "score") {
+          if ((rule[0] === "more-equal" && info.score >= rule[1]) ||
+              (rule[0] === "more"       && info.score >  rule[1]) ||
+              (rule[0] === "less"       && info.score <  rule[1]) ||
+              (rule[0] === "less-equal" && info.score <= rule[1])) {
+            aux.nextMedia = nextSet[i];
+            aux.flow = nextSet[i].flow;
+          } else nextSet[i].disable = true;
         }
-      } else if (nextSet && nextSet.length === 1) { // There is only one Media
-          aux.nextMedia = nextSet[0];
-          aux.flow = nextSet[0].popcornTrackEvent.flow;
-      }
+        else if (keyrule === "pass") {
+          if (rule) {
+            aux.nextMedia = nextSet[i];
+            aux.flow = nextSet[i].flow;
+          }
+          else nextSet[i].disable = true;
+          this.removeTrackEvent( nextSet[i], nextSet[i].id );
+        }
+        else { // There's no rule
+          nextSet[i].disable = true;
+          this.removeTrackEvent( nextSet[i], nextSet[i].id );
+console.log("[removeTrackEvent]", nextSet[i], this.data);
+        }
+      };
+      instance._running = false; // Now this instance is not running
       return aux;
     },
     toggleClassRunning: function(instance, action) {
-      var tracks = instance.getOrderedBySet();
-      var instanceEvent = this.findById(tracks[instance.setMedia], instance.id);
-      if (instanceEvent) {
-        if (action)
-          $(instanceEvent.view.element).addClass("running");
-        else
-          $(instanceEvent.view.element).removeClass("running");
-      }
-    },
-    // Continue with the next Flow
-    toggleFlow: function(instance, showFlow) {
-      var tracks = instance.getOrderedBySet();
-      var nextSet = tracks[instance.setMedia +1];
-      var flow; 
-      for (var i in nextSet) {
-        hideFlow = nextSet[i].popcornTrackEvent.flow;
-        if (hideFlow !== showFlow)
-          $(".trackMediaEvent[flow='"+ hideFlow +"']").addClass("hideFlow");
-      }
-      $(".trackMediaEvent[flow='"+ showFlow +"']").removeClass("hideFlow");
-      instance._running = false; // Now this instance is not running
-      this.toggleClassRunning(instance);
+      if (action)
+        $(instance._container).addClass("running");
+      else
+        $(instance._container).removeClass("running");
     },
     findById: function(sourceSet, id) {
       return sourceSet.filter(function( obj ) {
@@ -1788,62 +1804,83 @@
     indexOnSet: function(sourceSet, id) {
       return sourceSet.indexOf(this.findById(sourceSet, id));
     },
+    getTracksBySet: function(set, slice) {
+      var tracks = this.data.trackEvents.byStart.slice(slice);
+      var aux = { set:[], running:[], notRunning:[] };
+      tracks.forEach(function(track) {
+        if (track instanceof TrackEvent) {
+          if (track.setMedia === set) {
+            if (track._running) {
+              aux.running.push(track);
+            }
+            else {
+              aux.notRunning.push(track);
+            }
+            aux.set.push(track);
+          } else return;
+        }
+      });
+      return aux;
+    },
     // return Running instances and not running instances
     runningInstancesObj: function(sourceSet) {
       var aux = {'running':[], 'notRunning':[]};
       for (var i in sourceSet) {
-        if (sourceSet[i].popcornTrackEvent._running)
-          aux.running.push(sourceSet[i]);
+        if (sourceSet[i]._running)
+          aux.running.push(sourceSet[i]); // list runnings in this current set
         else
-          aux.notRunning.push(sourceSet[i]);
+          aux.notRunning.push(sourceSet[i]); // list no runnings in this current set
       }
       return aux;
     },
     // Skip to the next Popcorn plugin
     jumpNext: function(instance, time) {
       var currTime = this.currentTime();
-      var tracks = instance.getOrderedBySet();
-      var currentSet = tracks[instance.setMedia];
-      var nextSet = tracks[instance.setMedia +1];
-      var runningInstances = this.runningInstancesObj(currentSet); // list runnings in this current set
-      var index = this.indexOnSet(runningInstances.notRunning, instance.id); // Current position in the Set
+      var tracks = this.data.trackEvents.byStart;
+      var index = tracks.indexOf(instance);
+      var current = this.getTracksBySet(instance.setMedia, index);
+      var nextSet = this.getTracksBySet(instance.setMedia+1, index+1).set;
+      var index = this.indexOnSet(current.notRunning, instance.id); // Current position in the Set
 
       // Current Set
       // There might be more popcorn 'running or to run' in the CurrentSet
-      if (currentSet.length > 1) {
-        if (runningInstances.running.length < 1) { // If there's no running instances
-          if (runningInstances.notRunning[index+1]) { // if we can jump to the next pop in the same Set
-            if (currTime < runningInstances.notRunning[index+1].popcornOptions.start) {
-              return this.currentTime( runningInstances.notRunning[index+1].popcornOptions.start );
+      if (current.set.length > 1) {
+        if (current.running.length < 1) { // If there's no running instances
+          if (current.notRunning[index+1]) { // if we can jump to the next pop in the same Set
+            if (currTime < current.notRunning[index+1].start) {
+              return this.currentTime( current.notRunning[index+1].start );
             }
           } 
         }
       }
       // Next Set
-      if (runningInstances.running.length < 1) { // If there's no running instances
+      if (current.running.length < 1) { // If there's no running instances
         if (time) { // Just jump to the params time
           this.currentTime(time);
-        } else if ( nextSet && nextSet.length > 0 ) { // Jump to the first instance of the nextSet
+        }
+        else if ( nextSet && nextSet.length > 0 ) { // Jump to the first instance of the nextSet
           var start = nextSet.filter(function(media) {
-            var element = $(media.view.element);
-            if (element.hasClass("mainFlow") || !element.hasClass("hideFlow"))
-              return media.popcornOptions.start;
+            var $element = $(media._container);
+            if ($element.hasClass("mainFlow") || !$element.hasClass("hideFlow"))
+              return media.start;
           })[0];
-          this.currentTime(start.popcornOptions.start);
-        } else { // Jump to End
-          this.currentTime(this.media.duration);
+          this.currentTime(start.start);
+        }
+        else {
+          this.currentTime(this.media.duration); // Jump to End
         }
       }
     },
     continueFlow: function(instance, info) {
-      var tracks = instance.getOrderedBySet();
-      var nextSet = tracks[instance.setMedia +1];
+      var tracks  = this.data.trackEvents.byStart;
+      var index   = tracks.indexOf(instance);
+      var nextSet = this.getTracksBySet(instance.setMedia+1, index+1).set;
 
-      var aux = this.chooseFlowByScore(instance, info);
-      this.toggleFlow(instance, aux.flow);
+      var aux = this.chooseFlowByScore(instance, info, nextSet);
+      this.toggleClassRunning(instance);
 
       if (aux.nextMedia) {
-        this.jumpNext(instance, aux.nextMedia.popcornOptions.start);
+        this.jumpNext(instance, aux.nextMedia.start);
       } else {
         this.jumpNext(instance, this.media.duration);
       }
