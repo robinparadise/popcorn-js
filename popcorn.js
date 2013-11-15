@@ -1756,7 +1756,6 @@ console.log("[Execute all ready function in the stack]", readyStack[ i ]);
     },
     // Choose with Flow to follow by the "score info" match
     chooseFlowByScore: function(instance, info, nextSet) {
-console.log("[chooseFlowByScore]", instance, info, nextSet);
       var aux = {'flow': undefined, 'nextMedia': undefined};
       var keyrule, rule;
 
@@ -1770,13 +1769,11 @@ console.log("[chooseFlowByScore]", instance, info, nextSet);
               (rule[0] === "less"       && info.score <  rule[1]) ||
               (rule[0] === "less-equal" && info.score <= rule[1])) {
             aux.nextMedia = nextSet[i];
-            aux.flow = nextSet[i].flow;
           } else nextSet[i].disable = true;
         }
         else if (keyrule === "pass") {
           if (rule) {
             aux.nextMedia = nextSet[i];
-            aux.flow = nextSet[i].flow;
           }
           else nextSet[i].disable = true;
           this.removeTrackEvent( nextSet[i], nextSet[i].id );
@@ -1784,7 +1781,6 @@ console.log("[chooseFlowByScore]", instance, info, nextSet);
         else { // There's no rule
           nextSet[i].disable = true;
           this.removeTrackEvent( nextSet[i], nextSet[i].id );
-console.log("[removeTrackEvent]", nextSet[i], this.data);
         }
       };
       instance._running = false; // Now this instance is not running
@@ -1860,9 +1856,9 @@ console.log("[removeTrackEvent]", nextSet[i], this.data);
         }
         else if ( nextSet && nextSet.length > 0 ) { // Jump to the first instance of the nextSet
           var start = nextSet.filter(function(media) {
-            var $element = $(media._container);
-            if ($element.hasClass("mainFlow") || !$element.hasClass("hideFlow"))
+            if (!media.disable) {
               return media.start;
+            }
           })[0];
           this.currentTime(start.start);
         }
