@@ -1755,7 +1755,7 @@ console.log("[Execute all ready function in the stack]", readyStack[ i ]);
       return this;
     },
     // Choose with Flow to follow by the "score info" match
-    chooseFlowByScore: function(instance, info, nextSet) {
+    chooseFlowByRule: function(instance, info, nextSet) {
       var aux = {'flow': undefined, 'nextMedia': undefined};
       var keyrule, rule;
 
@@ -1872,7 +1872,7 @@ console.log("[Execute all ready function in the stack]", readyStack[ i ]);
       var index   = tracks.indexOf(instance);
       var nextSet = this.getTracksBySet(instance.setMedia+1, index+1).set;
 
-      var aux = this.chooseFlowByScore(instance, info, nextSet);
+      var aux = this.chooseFlowByRule(instance, info, nextSet);
       this.toggleClassRunning(instance);
 
       if (aux.nextMedia) {
