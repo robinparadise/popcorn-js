@@ -139,7 +139,6 @@
 
             //  Execute all ready function in the stack
             for ( var i = 0, readyStackLength = readyStack.length; i < readyStackLength; i++ ) {
-console.log("[Execute all ready function in the stack]", readyStack[ i ]);
               readyStack[ i ].call( document, Popcorn );
 
             }
@@ -1762,6 +1761,7 @@ console.log("[Execute all ready function in the stack]", readyStack[ i ]);
       for (var i = nextSet.length - 1; i >= 0; i--) {
         keyrule = instance.rulesTo[nextSet[i].id].keyrule;
         rule = instance.rulesTo[nextSet[i].id][keyrule];
+        nextSet[i].disable = true;
 
         if (keyrule === "score") {
           if ((rule[0] === "more-equal" && info.score >= rule[1]) ||
@@ -1769,17 +1769,40 @@ console.log("[Execute all ready function in the stack]", readyStack[ i ]);
               (rule[0] === "less"       && info.score <  rule[1]) ||
               (rule[0] === "less-equal" && info.score <= rule[1])) {
             aux.nextMedia = nextSet[i];
-          } else nextSet[i].disable = true;
+            nextSet[i].disable = false;
+          }
         }
         else if (keyrule === "pass") {
           if (rule) {
             aux.nextMedia = nextSet[i];
+            nextSet[i].disable = false;
           }
-          else nextSet[i].disable = true;
-          this.removeTrackEvent( nextSet[i], nextSet[i].id );
+        }
+        else if (keyrule === "questions" && rule.assured === "answer pass") {
+          var index, found = false;
+
+          for (index in info.problem) {
+            if (info.problem[index].ques === rule.ques) {
+              found = true;
+              break;
+            }
+          }
+          // We got a problem, can't find the question
+          if (!found) {
+            continue;
+          }
+          // the user answer must be correct to jump over
+          if ((rule.answerpass === true || rule.answerpass === "true") && info.problem[index].isCorrect) {
+            aux.nextMedia = nextSet[i];
+            nextSet[i].disable = false;
+          }
+          // the user answer must be incorrect to jump over
+          else if ((rule.answerpass === false || rule.answerpass === "false") && !info.problem[index].isCorrect) {
+            aux.nextMedia = nextSet[i];
+            nextSet[i].disable = false;
+          }
         }
         else { // There's no rule
-          nextSet[i].disable = true;
           this.removeTrackEvent( nextSet[i], nextSet[i].id );
         }
       };
