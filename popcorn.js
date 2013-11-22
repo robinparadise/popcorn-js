@@ -1577,7 +1577,7 @@
               );
               // Jump to the next Plugin when playing (not seeking, nor paused)
               if (currentTime - previousTime < 0.2) {
-                obj.jumpNext(byEnd); // obj == Popcorn == this
+                obj.continueFlow(byEnd, undefined); // obj == Popcorn == this
               }
               obj.toggleClassRunning(byEnd);
             }
@@ -1763,7 +1763,7 @@
         rule = instance.rulesTo[nextSet[i].id][keyrule];
         nextSet[i].disable = true;
 
-        if (keyrule === "score") {
+        if (info && keyrule === "score") {
           if ((rule[0] === "more-equal" && info.score >= rule[1]) ||
               (rule[0] === "more"       && info.score >  rule[1]) ||
               (rule[0] === "less"       && info.score <  rule[1]) ||
@@ -1773,14 +1773,13 @@
           }
         }
         else if (keyrule === "pass") {
-          if (rule) {
+          if (rule === true || rule === "true") {
             aux.nextMedia = nextSet[i];
             nextSet[i].disable = false;
           }
         }
-        else if (keyrule === "questions" && rule.assured === "answer pass") {
+        else if (info && keyrule === "questions") {
           var index, found = false;
-
           for (index in info.problem) {
             if (info.problem[index].ques === rule.ques) {
               found = true;
@@ -1791,19 +1790,49 @@
           if (!found) {
             continue;
           }
+
+          // Converts all answers to lowercase
+          var ruleAnswers = [];
+          var userAnswer = info.problem[index].userAnswer.toLowerCase();
+          if (typeof(rule.answers) === "string") {
+            ruleAnswers = [rule.answers.toLowerCase()];
+          }
+          else if ($.isArray(rule.answers)) {
+            ruleAnswers = rule.answers.map(function(elem) { return elem.toLowerCase() });
+          }
+          
           // the user answer must be correct to jump over
-          if ((rule.answerpass === true || rule.answerpass === "true") && info.problem[index].isCorrect) {
+          if (rule.assured === "correct answer" && info.problem[index].isCorrect) {
             aux.nextMedia = nextSet[i];
             nextSet[i].disable = false;
           }
           // the user answer must be incorrect to jump over
-          else if ((rule.answerpass === false || rule.answerpass === "false") && !info.problem[index].isCorrect) {
+          else if (rule.assured === "incorrect answer" && !info.problem[index].isCorrect) {
             aux.nextMedia = nextSet[i];
             nextSet[i].disable = false;
           }
+          else if (rule.assured === "specific answer" &&
+                  (rule.userAnswer === true || rule.userAnswer === "true")) {
+            // the user answer must be include in the rule answer
+            if ($.inArray(userAnswer, ruleAnswers) !== -1) {
+              aux.nextMedia = nextSet[i];
+              nextSet[i].disable = false;
+            }
+          }
+          else if (rule.assured === "specific answer" &&
+                  (rule.userAnswer === false || rule.userAnswer === "false")) {
+            // the user answer mustn't be include in the rule answer
+            if ($.inArray(userAnswer, ruleAnswers) === -1) {
+              aux.nextMedia = nextSet[i];
+              nextSet[i].disable = false;
+            }
+          }
         }
-        else { // There's no rule
+        else if (!!instance.rulesTo[nextSet[i].id]) { // There's a rule unknown
           this.removeTrackEvent( nextSet[i], nextSet[i].id );
+        }
+        else {
+          nextSet[i].disable = false;
         }
       };
       instance._running = false; // Now this instance is not running
