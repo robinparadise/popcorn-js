@@ -1658,7 +1658,7 @@
                   track: byStart
                 })
               );
-              obj.toggleClassRunning(byStart);
+              //obj.toggleClassRunning(byStart);
             }
           }
           start--;
@@ -1696,7 +1696,7 @@
                   track: byEnd
                 })
               );
-              obj.toggleClassRunning(byEnd, "started");
+              //obj.toggleClassRunning(byEnd, "started");
             }
           }
           end--;
@@ -1753,29 +1753,45 @@
       Popcorn.destroy.call( null, this );
       return this;
     },
-    // Choose with Flow to follow by the "score info" match
-    chooseFlowByRule: function(instance, info, nextSet) {
-      var aux = {'flow': undefined, 'nextMedia': undefined};
-      var keyrule, rule;
 
-      for (var i = nextSet.length - 1; i >= 0; i--) {
-        keyrule = instance.rulesTo[nextSet[i].id].keyrule;
-        rule = instance.rulesTo[nextSet[i].id][keyrule];
-        nextSet[i].disable = true;
+    // Desactive all instance of this instance
+    // instance.rulesTo
+    disableAll: function(that, instance) {
+      if (!instance.rulesTo) { // is leaf node
+        instance.disable = true;
+      } else {
+        Object.keys(instance.rulesTo).forEach(function(id) {
+          if (instance.rulesTo[id] !== false) {
+            that.disableAll(that, instance.rulesTo[id].instance);
+          }
+        });
+        instance.disable = true;
+      }
+    },
+    // Choose with Flow to follow by the "score info" match
+    disableByRule: function(instance, info) {
+      if (!instance.rulesTo) return;
+      var keyrule, rule, next;
+      var that = this;
+      
+      Object.keys(instance.rulesTo).forEach(function(id) {
+        if (!instance.rulesTo[id]) return; // delete rule
+        next    = instance.rulesTo[id].instance;
+        keyrule = instance.rulesTo[id].keyrule;
+        rule    = instance.rulesTo[id][keyrule];
+        next.disable = true;
 
         if (info && keyrule === "score") {
           if ((rule[0] === "more-equal" && info.score >= rule[1]) ||
               (rule[0] === "more"       && info.score >  rule[1]) ||
               (rule[0] === "less"       && info.score <  rule[1]) ||
               (rule[0] === "less-equal" && info.score <= rule[1])) {
-            aux.nextMedia = nextSet[i];
-            nextSet[i].disable = false;
+            next.disable = false;
           }
         }
         else if (keyrule === "pass") {
           if (rule === true || rule === "true") {
-            aux.nextMedia = nextSet[i];
-            nextSet[i].disable = false;
+            next.disable = false;
           }
         }
         else if (info && keyrule === "questions") {
@@ -1788,7 +1804,7 @@
           }
           // We got a problem, can't find the question
           if (!found) {
-            continue;
+            return;
           }
 
           // Converts all answers to lowercase
@@ -1800,43 +1816,41 @@
           else if ($.isArray(rule.answers)) {
             ruleAnswers = rule.answers.map(function(elem) { return elem.toLowerCase() });
           }
-          
+
           // the user answer must be correct to jump over
           if (rule.assured === "correct answer" && info.problem[index].isCorrect) {
-            aux.nextMedia = nextSet[i];
-            nextSet[i].disable = false;
+            next.disable = false;
           }
           // the user answer must be incorrect to jump over
           else if (rule.assured === "incorrect answer" && !info.problem[index].isCorrect) {
-            aux.nextMedia = nextSet[i];
-            nextSet[i].disable = false;
+            next.disable = false;
           }
           else if (rule.assured === "specific answer" &&
                   (rule.userAnswer === true || rule.userAnswer === "true")) {
             // the user answer must be include in the rule answer
             if ($.inArray(userAnswer, ruleAnswers) !== -1) {
-              aux.nextMedia = nextSet[i];
-              nextSet[i].disable = false;
+              next.disable = false;
             }
           }
           else if (rule.assured === "specific answer" &&
                   (rule.userAnswer === false || rule.userAnswer === "false")) {
             // the user answer mustn't be include in the rule answer
             if ($.inArray(userAnswer, ruleAnswers) === -1) {
-              aux.nextMedia = nextSet[i];
-              nextSet[i].disable = false;
+              next.disable = false;
             }
           }
         }
-        else if (!!instance.rulesTo[nextSet[i].id]) { // There's a rule unknown
-          this.removeTrackEvent( nextSet[i], nextSet[i].id );
+        else if (!!keyrule) { // There's a rule unknown
+          that.removeTrackEvent( next, next.id );
         }
-        else {
-          nextSet[i].disable = false;
+
+        if (next.disable) {
+          that.disableAll(that, next);
         }
-      };
+      });
+
       instance._running = false; // Now this instance is not running
-      return aux;
+      return next;
     },
     toggleClassRunning: function(instance, action) {
       if (action)
@@ -1912,7 +1926,12 @@
               return media.start;
             }
           })[0];
-          this.currentTime(start.start);
+          if (start) {
+            this.currentTime(start.start);
+          }
+          else {
+            this.currentTime(this.media.duration); // Jump to End
+          }
         }
         else {
           this.currentTime(this.media.duration); // Jump to End
@@ -1924,14 +1943,16 @@
       var index   = tracks.indexOf(instance);
       var nextSet = this.getTracksBySet(instance.setMedia+1, index+1).set;
 
-      var aux = this.chooseFlowByRule(instance, info, nextSet);
-      this.toggleClassRunning(instance);
+      //var aux = this.chooseFlowByRule(instance, info, nextSet);
+      var aux = this.disableByRule(instance, info);
+      //this.toggleClassRunning(instance);
 
-      if (aux.nextMedia) {
+/*      if (aux.nextMedia) {
         this.jumpNext(instance, aux.nextMedia.start);
       } else {
         this.jumpNext(instance, this.media.duration);
-      }
+      }*/
+      this.jumpNext(instance);
       this.play(); // resume media throw plugin
     }
     
