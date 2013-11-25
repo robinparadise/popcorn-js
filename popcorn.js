@@ -1579,7 +1579,7 @@
               if (currentTime - previousTime < 0.2) {
                 obj.continueFlow(byEnd, undefined); // obj == Popcorn == this
               }
-              obj.toggleClassRunning(byEnd);
+              //obj.toggleClassRunning(byEnd);
             }
           }
 
@@ -1616,7 +1616,7 @@
                   track: byStart
                 })
               );
-              obj.toggleClassRunning(byStart, "started");
+              //obj.toggleClassRunning(byStart, "started");
             }
           }
           start++;
@@ -1753,9 +1753,25 @@
       Popcorn.destroy.call( null, this );
       return this;
     },
+    // Force to end the instance
+    emitEnd: function(obj, instance) {
+      instance._running = false;
+      var type = instance._natives.type;
+      var runningPlugins = obj.data.running[ type ];
+      runningPlugins.splice( runningPlugins.indexOf( instance ), 1 );
 
-    // Desactive all instance of this instance
-    // instance.rulesTo
+      if ( !obj.data.disabled[ type ] ) {
+        instance._natives.end.call( obj, {}, instance );
+        obj.emit( "trackend",
+          Popcorn.extend({}, instance, {
+            plugin: type,
+            type: "trackend",
+            track: instance
+          })
+        );
+      }
+    },
+    // Desactive all instance of this branch
     disableAll: function(that, instance) {
       if (!instance.rulesTo) { // is leaf node
         instance.disable = true;
@@ -1849,8 +1865,8 @@
         }
       });
 
-      instance._running = false; // Now this instance is not running
-      return next;
+      // Now this instance is not running
+      that.emitEnd(that, instance);
     },
     toggleClassRunning: function(instance, action) {
       if (action)
@@ -1884,74 +1900,37 @@
       });
       return aux;
     },
-    // return Running instances and not running instances
-    runningInstancesObj: function(sourceSet) {
-      var aux = {'running':[], 'notRunning':[]};
-      for (var i in sourceSet) {
-        if (sourceSet[i]._running)
-          aux.running.push(sourceSet[i]); // list runnings in this current set
-        else
-          aux.notRunning.push(sourceSet[i]); // list no runnings in this current set
-      }
-      return aux;
+    isRunning: function(obj) {
+      var running = false;
+      var runningObj = $.extend({}, obj.data.running);
+      Object.keys(runningObj).forEach(function(type) {
+        if (runningObj[type].length > 0) {
+          running = true;
+        }
+      });
+      return running;
     },
     // Skip to the next Popcorn plugin
     jumpNext: function(instance, time) {
       var currTime = this.currentTime();
-      var tracks = this.data.trackEvents.byStart;
-      var index = tracks.indexOf(instance);
-      var current = this.getTracksBySet(instance.setMedia, index);
-      var nextSet = this.getTracksBySet(instance.setMedia+1, index+1).set;
-      var index = this.indexOnSet(current.notRunning, instance.id); // Current position in the Set
+      var tracks   = this.data.trackEvents.byStart;
+      var index    = tracks.indexOf(instance) + 1;
 
-      // Current Set
-      // There might be more popcorn 'running or to run' in the CurrentSet
-      if (current.set.length > 1) {
-        if (current.running.length < 1) { // If there's no running instances
-          if (current.notRunning[index+1]) { // if we can jump to the next pop in the same Set
-            if (currTime < current.notRunning[index+1].start) {
-              return this.currentTime( current.notRunning[index+1].start );
-            }
-          } 
-        }
-      }
-      // Next Set
-      if (current.running.length < 1) { // If there's no running instances
+      if (!this.isRunning(this)) { // if there're no instances running
         if (time) { // Just jump to the params time
           this.currentTime(time);
         }
-        else if ( nextSet && nextSet.length > 0 ) { // Jump to the first instance of the nextSet
-          var start = nextSet.filter(function(media) {
-            if (!media.disable) {
-              return media.start;
+        for (index; index < tracks.length; index++) {
+          if (tracks[index] && !tracks[index]._running && !tracks[index].disable) {
+            if (currTime < tracks[index].start) {
+              return this.currentTime( tracks[index].start );
             }
-          })[0];
-          if (start) {
-            this.currentTime(start.start);
           }
-          else {
-            this.currentTime(this.media.duration); // Jump to End
-          }
-        }
-        else {
-          this.currentTime(this.media.duration); // Jump to End
         }
       }
     },
     continueFlow: function(instance, info) {
-      var tracks  = this.data.trackEvents.byStart;
-      var index   = tracks.indexOf(instance);
-      var nextSet = this.getTracksBySet(instance.setMedia+1, index+1).set;
-
-      //var aux = this.chooseFlowByRule(instance, info, nextSet);
-      var aux = this.disableByRule(instance, info);
-      //this.toggleClassRunning(instance);
-
-/*      if (aux.nextMedia) {
-        this.jumpNext(instance, aux.nextMedia.start);
-      } else {
-        this.jumpNext(instance, this.media.duration);
-      }*/
+      this.disableByRule(instance, info);
       this.jumpNext(instance);
       this.play(); // resume media throw plugin
     }
