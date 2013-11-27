@@ -1579,7 +1579,6 @@
               if (currentTime - previousTime < 0.2) {
                 obj.continueFlow(byEnd, undefined); // obj == Popcorn == this
               }
-              //obj.toggleClassRunning(byEnd);
             }
           }
 
@@ -1616,7 +1615,6 @@
                   track: byStart
                 })
               );
-              //obj.toggleClassRunning(byStart, "started");
             }
           }
           start++;
@@ -1658,7 +1656,6 @@
                   track: byStart
                 })
               );
-              //obj.toggleClassRunning(byStart);
             }
           }
           start--;
@@ -1696,7 +1693,6 @@
                   track: byEnd
                 })
               );
-              //obj.toggleClassRunning(byEnd, "started");
             }
           }
           end--;
@@ -1773,6 +1769,12 @@
     },
     // Desactive all instance of this branch
     disableAll: function(that, instance) {
+      // Disable all SubTrackEvents
+      if (instance.isSuperTrackEvent) {
+        for (var i in  instance.subTrackEvents) {
+          instance.subTrackEvents[i].disable = true;
+        }
+      }
       if (!instance.rulesTo) { // is leaf node
         instance.disable = true;
       } else {
@@ -1782,6 +1784,25 @@
           }
         });
         instance.disable = true;
+      }
+    },
+    // Enable all instance of this branch
+    enableAll: function(that, instance) {
+      // Enable all SubTrackEvents
+      if (instance.isSuperTrackEvent) {
+        for (var i in  instance.subTrackEvents) {
+          instance.subTrackEvents[i].disable = false;
+        }
+      }
+      if (!instance.rulesTo) { // is leaf node
+        instance.disable = false;
+      } else {
+        Object.keys(instance.rulesTo).forEach(function(id) {
+          if (instance.rulesTo[id] !== false) {
+            that.disableAll(that, instance.rulesTo[id].instance);
+          }
+        });
+        instance.disable = false;
       }
     },
     // Choose with Flow to follow by the "score info" match
@@ -1863,16 +1884,13 @@
         if (next.disable) {
           that.disableAll(that, next);
         }
+        else {
+          that.enableAll(that, next);
+        }
       });
 
       // Now this instance is not running
       that.emitEnd(that, instance);
-    },
-    toggleClassRunning: function(instance, action) {
-      if (action)
-        $(instance._container).addClass("running");
-      else
-        $(instance._container).removeClass("running");
     },
     findById: function(sourceSet, id) {
       return sourceSet.filter(function( obj ) {
@@ -1900,6 +1918,7 @@
       });
       return aux;
     },
+    // Return is there are instances running on this current time
     isRunning: function(obj) {
       var running = false;
       var runningObj = $.extend({}, obj.data.running);
