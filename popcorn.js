@@ -1768,41 +1768,22 @@
       }
     },
     // Desactive all instance of this branch
-    disableAll: function(that, instance) {
+    disableAll: function(that, instance, val) {
       // Disable all SubTrackEvents
       if (instance.isSuperTrackEvent) {
         for (var i in  instance.subTrackEvents) {
-          instance.subTrackEvents[i].disable = true;
+          instance.subTrackEvents[i].disable = val;
         }
       }
       if (!instance.rulesTo) { // is leaf node
-        instance.disable = true;
+        instance.disable = val;
       } else {
         Object.keys(instance.rulesTo).forEach(function(id) {
           if (instance.rulesTo[id] !== false) {
             that.disableAll(that, instance.rulesTo[id].instance);
           }
         });
-        instance.disable = true;
-      }
-    },
-    // Enable all instance of this branch
-    enableAll: function(that, instance) {
-      // Enable all SubTrackEvents
-      if (instance.isSuperTrackEvent) {
-        for (var i in  instance.subTrackEvents) {
-          instance.subTrackEvents[i].disable = false;
-        }
-      }
-      if (!instance.rulesTo) { // is leaf node
-        instance.disable = false;
-      } else {
-        Object.keys(instance.rulesTo).forEach(function(id) {
-          if (instance.rulesTo[id] !== false) {
-            that.disableAll(that, instance.rulesTo[id].instance);
-          }
-        });
-        instance.disable = false;
+        instance.disable = val;
       }
     },
     // Choose with Flow to follow by the "score info" match
@@ -1812,7 +1793,7 @@
       var that = this;
       
       Object.keys(instance.rulesTo).forEach(function(id) {
-        if (!instance.rulesTo[id]) return; // delete rule
+        if (!instance.rulesTo[id]) return; // deleted rule
         next    = instance.rulesTo[id].instance;
         keyrule = instance.rulesTo[id].keyrule;
         rule    = instance.rulesTo[id][keyrule];
@@ -1882,10 +1863,10 @@
         }
 
         if (next.disable) {
-          that.disableAll(that, next);
+          that.disableAll(that, next, true);
         }
         else {
-          that.enableAll(that, next);
+          that.disableAll(that, next, false);
         }
       });
 
