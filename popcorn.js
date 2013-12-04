@@ -1779,7 +1779,7 @@
         instance.disable = val;
       } else {
         Object.keys(instance.rulesTo).forEach(function(id) {
-          if (instance.rulesTo[id] !== false) {
+          if (instance.rulesTo[id] !== false && !instance.rulesTo[id].backward) {
             that.disableAll(that, instance.rulesTo[id].instance);
           }
         });
@@ -1789,7 +1789,7 @@
     // Choose with Flow to follow by the "score info" match
     disableByRule: function(instance, info) {
       if (!instance.rulesTo) return;
-      var keyrule, rule, next;
+      var keyrule, rule, next, aux;
       var that = this;
       
       Object.keys(instance.rulesTo).forEach(function(id) {
@@ -1800,6 +1800,7 @@
         next.disable = true;
 
         if (info && keyrule === "score") {
+          rule[1] = Number(rule[1]);
           if ((rule[0] === "more-equal" && info.score >= rule[1]) ||
               (rule[0] === "more"       && info.score >  rule[1]) ||
               (rule[0] === "less"       && info.score <  rule[1]) ||
@@ -1862,16 +1863,28 @@
           that.removeTrackEvent( next, next.id );
         }
 
-        if (next.disable) {
+        if (next.id === instance.id) { // intance backward
+          if (!instance.disable) { // rule assured, jump next
+            aux = next;
+          }
+          else {
+            instance.disable = false;
+          }
+        }
+        else if (next.disable) {
           that.disableAll(that, next, true);
         }
-        else {
+        else { // rule assured, jump next
           that.disableAll(that, next, false);
+          if (instance.rulesTo[id].backward) {
+            aux = next;
+          }
         }
       });
 
       // Now this instance is not running
       that.emitEnd(that, instance);
+      return aux;
     },
     findById: function(sourceSet, id) {
       return sourceSet.filter(function( obj ) {
@@ -1930,8 +1943,13 @@
       }
     },
     continueFlow: function(instance, info) {
-      this.disableByRule(instance, info);
-      this.jumpNext(instance);
+      var next = this.disableByRule(instance, info);
+      if (next) {
+        this.currentTime(next.start);
+      }
+      else {
+        this.jumpNext(instance);
+      }
       this.play(); // resume media throw plugin
     }
     
