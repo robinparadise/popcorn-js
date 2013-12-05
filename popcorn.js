@@ -1780,7 +1780,7 @@
       } else {
         Object.keys(instance.rulesTo).forEach(function(id) {
           if (instance.rulesTo[id] !== false && !instance.rulesTo[id].backward) {
-            that.disableAll(that, instance.rulesTo[id].instance);
+            that.disableAll(that, instance.rulesTo[id].instance, val);
           }
         });
         instance.disable = val;
@@ -1788,24 +1788,36 @@
     },
     // Choose with Flow to follow by the "score info" match
     disableByRule: function(instance, info) {
-      if (!instance.rulesTo) return;
-      var keyrule, rule, next, aux;
-      var that = this;
+      if (!instance.rulesTo) {
+        // Now this instance is not running
+        instance._running && this.emitEnd(this, instance);
+        return;
+      };
+      var keyrule, rule, next, aux, infoValue,
+          that = this;
       
       Object.keys(instance.rulesTo).forEach(function(id) {
-        if (!instance.rulesTo[id]) return; // deleted rule
+        if (!instance.rulesTo[id]) {
+          return;
+        }; // deleted rule
         next    = instance.rulesTo[id].instance;
         keyrule = instance.rulesTo[id].keyrule;
         rule    = instance.rulesTo[id][keyrule];
         next.disable = true;
 
-        if (info && keyrule === "score") {
-          rule[1] = Number(rule[1]);
-          if ((rule[0] === "more-equal" && info.score >= rule[1]) ||
-              (rule[0] === "more"       && info.score >  rule[1]) ||
-              (rule[0] === "less"       && info.score <  rule[1]) ||
-              (rule[0] === "less-equal" && info.score <= rule[1])) {
-            next.disable = false;
+        if (info && (keyrule === "score" || keyrule === "time")) {
+          infoValue = keyrule === "time"? Number(info.time) : Number(info.score);
+          if (rule.value) {
+            rule.value = Number(rule.value);
+            if (!rule.condition) {
+              rule.condition = "less";
+            }
+            if ((rule.condition === "more-equal" && infoValue >= rule.value) ||
+                (rule.condition === "more"       && infoValue >  rule.value) ||
+                (rule.condition === "less"       && infoValue <  rule.value) ||
+                (rule.condition === "less-equal" && infoValue <= rule.value)) {
+              next.disable = false;
+            }
           }
         }
         else if (keyrule === "pass") {
