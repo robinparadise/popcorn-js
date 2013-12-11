@@ -1239,26 +1239,10 @@
       this.parent.data.trackEvents.endIndex++;
     }
 
-/*    // Ordered bySet
-    if (!track.setMedia)  return;
-    var setMedia = bySet[track.setMedia];
-    if (setMedia && setMedia.length > 0) {
-      for ( var index = setMedia.length - 1; index >= 0; index-- ) {
-        if ( track.start >= setMedia[index].start ) {
-          setMedia.splice( index + 1, 0, track );
-          break;
-        }
-      }
-    } else {
-      bySet[track.setMedia] = [track];
-    }
-    console.log("[TrackEvent bySet]", track, bySet);*/
-
   };
 
   TrackEvents.prototype.remove = function( removeId, state ) {
-/*console.log("[TrackEvent][remove]", removeId, state);
-*/
+
     if ( removeId instanceof TrackEvent ) {
       removeId = removeId.id;
     }
@@ -1772,7 +1756,7 @@
       // Disable all SubTrackEvents
       if (instance.isSuperTrackEvent) {
         for (var i in  instance.subTrackEvents) {
-          instance.subTrackEvents[i].disable = val;
+          that.getTrackEvent( instance.subTrackEvents[i] ).disable = val;
         }
       }
       if (!instance.rulesTo) { // is leaf node
@@ -1898,32 +1882,6 @@
       that.emitEnd(that, instance);
       return aux;
     },
-    findById: function(sourceSet, id) {
-      return sourceSet.filter(function( obj ) {
-        return obj.id === id;
-      })[ 0 ];
-    },
-    indexOnSet: function(sourceSet, id) {
-      return sourceSet.indexOf(this.findById(sourceSet, id));
-    },
-    getTracksBySet: function(set, slice) {
-      var tracks = this.data.trackEvents.byStart.slice(slice);
-      var aux = { set:[], running:[], notRunning:[] };
-      tracks.forEach(function(track) {
-        if (track instanceof TrackEvent) {
-          if (track.setMedia === set) {
-            if (track._running) {
-              aux.running.push(track);
-            }
-            else {
-              aux.notRunning.push(track);
-            }
-            aux.set.push(track);
-          } else return;
-        }
-      });
-      return aux;
-    },
     // Return is there are instances running on this current time
     isRunning: function(obj) {
       var running = false;
@@ -1963,6 +1921,14 @@
         this.jumpNext(instance);
       }
       this.play(); // resume media throw plugin
+    },
+    getQuizzes: function(callback) {
+      Popcorn.xhr({
+        url:"/api/quizzes/all",
+        success: function( data ) {
+          callback(data);
+        }
+      });
     }
     
   });
