@@ -1755,16 +1755,16 @@
     disableAll: function(that, instance, val) {
       // Disable all SubTrackEvents
       if (instance.isSuperTrackEvent) {
-        for (var i in  instance.subTrackEvents) {
+        for (var i in instance.subTrackEvents) {
           that.getTrackEvent( instance.subTrackEvents[i] ).disable = val;
         }
       }
-      if (!instance.rulesTo) { // is leaf node
+      if (instance.rules && instance.rules.length < 1) { // is leaf node
         instance.disable = val;
       } else {
-        Object.keys(instance.rulesTo).forEach(function(id) {
-          if (instance.rulesTo[id] !== false && !instance.rulesTo[id].backward) {
-            that.disableAll(that, instance.rulesTo[id].instance, val);
+        !!instance.rules && Object.keys(instance.rules).forEach(function(id) {
+          if (instance.rules[id] && !instance.rules[id].deleted && !instance.rules[id].backward) {
+            that.disableAll(that, that.getTrackEvent(id), val);
           }
         });
         instance.disable = val;
@@ -1772,21 +1772,21 @@
     },
     // Choose with Flow to follow by the "score info" match
     disableByRule: function(instance, info) {
-      if (!instance.rulesTo) {
-        // Now this instance is not running
-        instance._running && this.emitEnd(this, instance);
-        return;
+      if (!instance.rules || (instance.rules && instance.rules.length < 1) ) {
+        instance._running && this.emitEnd(this, instance); // Now this instance is not running
+        return; // No rules, return
       };
       var keyrule, rule, next, aux, infoValue,
           that = this;
       
-      Object.keys(instance.rulesTo).forEach(function(id) {
-        if (!instance.rulesTo[id]) {
-          return;
-        }; // deleted rule
-        next    = instance.rulesTo[id].instance;
-        keyrule = instance.rulesTo[id].keyrule;
-        rule    = instance.rulesTo[id][keyrule];
+      Object.keys(instance.rules).forEach(function(id) {
+        if (instance.rules[id] && instance.rules[id].deleted) {
+          return; // deleted rule
+        };
+
+        next    = that.getTrackEvent(id);
+        keyrule = instance.rules[id].keyrule;
+        rule    = instance.rules[id][keyrule];
         next.disable = true;
 
         if (info && (keyrule === "score" || keyrule === "time")) {
@@ -1872,7 +1872,7 @@
         }
         else { // rule assured, jump next
           that.disableAll(that, next, false);
-          if (instance.rulesTo[id].backward) {
+          if (instance.rules[id].backward) {
             aux = next;
           }
         }
@@ -1914,13 +1914,17 @@
     },
     continueFlow: function(instance, info) {
       var next = this.disableByRule(instance, info);
+      try {
+        if (instance._natives.manifest.about.keyname === "quizme") {
+          this.play(); // resume media throw plugin
+        }
+      } catch(ex) {}
       if (next) {
         this.currentTime(next.start);
       }
       else {
         this.jumpNext(instance);
       }
-      this.play(); // resume media throw plugin
     },
     getQuizzes: function(callback) {
       Popcorn.xhr({
